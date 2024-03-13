@@ -1,22 +1,32 @@
-module Expr where 
+module Expr ( Operation(..), Expr(..) ) where
 
-import qualified Data.Map.Strict as M 
+data Operation =
+    Plus
+    | Minus
+    | Mul
+    | Div
+    | Pow
+    deriving (Show, Eq)
 
-data BinOp = Plus | Mult | Minus | Div | Pow deriving (Show, Eq)
-data UnOp = Sqrt deriving (Show, Eq)
+data Expr a =
+    Number a
+    | Root (Expr a)
+    | BinOp (Expr a) (Expr a) Operation
+    | Variable String
+    deriving Eq
 
-data Expr a
-  = Num a
-  | Var String
-  | BinOp BinOp (Expr a) (Expr a)
-  | UnOp UnOp (Expr a)
-  deriving (Show, Eq)
+instance Show a => Show (Expr a) where
+    show (Number x) = show x
+    show (Root x) = "√(" ++ show x ++ ")"
+    show (BinOp e1 e2 op) = "(" ++ show e1 ++ " " ++ show op ++ " " ++ show e2 ++ ")"
+    show (Variable name) = name
+
 
 instance Num a => Num (Expr a) where
-  a + b = BinOp Plus a b
-  a - b = BinOp Minus a b
-  a * b = BinOp Mult a b
-  abs = error "abs not implemented"
-  signum = error "signum not implemented"
-  fromInteger i = Num (fromInteger i)
-  negate = BinOp Mult (Num (-1))
+    (+) e1 e2 = BinOp e1 e2 Plus
+    (-) e1 e2 = BinOp e1 e2 Minus
+    (*) e1 e2 = BinOp e1 e2 Mul
+    negate e = BinOp (Number 0) e Minus
+    abs = undefined
+    signum = undefined
+    fromInteger = Number . fromInteger

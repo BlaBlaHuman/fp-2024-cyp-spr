@@ -1,25 +1,20 @@
-module Simplify ( simplify ) where 
+module Simplify ( simplify ) where
 
-import Expr ( Expr (..), BinOp (..), UnOp (..) )
+import Expr
 
-simplify :: (Eq a, Num a) => Expr a -> Expr a
-simplify (BinOp op x y) =
-  let x' = simplify x
-      y' = simplify y
-  in  case (op, x', y') of
-        (Mult, Num 1, _) -> y'
-        (Mult, _, Num 1) -> x'
-        (Mult, Num 0, _) -> Num 0
-        (Mult, _, Num 0) -> Num 0
-        (Div, _, Num 1) -> x'
-        (Plus, _, Num 0) -> x'
-        (Plus, Num 0, _) -> y'
-        (Minus, _, Num 0) -> x'
-        (Minus, _, _) | x' == y' -> Num 0
-        _ -> BinOp op x' y'
-simplify (UnOp op x) =  
-  case (op, simplify x) of 
-    (Sqrt, Num 0) -> Num 0 
-    (Sqrt, Num 1) -> Num 1
-    (_, x') -> UnOp Sqrt x' 
+simplify :: RealFloat a => Expr a -> Expr a
+simplify (BinOp 0 _ Mul) = Number 0
+simplify (BinOp _ 0 Mul) = Number 0
+simplify (BinOp 1 x Mul) = x
+simplify (BinOp x 1 Mul) = x
+simplify (BinOp x 0 Plus) = x
+simplify (BinOp 0 x Plus) = x
+simplify (BinOp e (Number 0.5) Pow) = Root $ simplify e
+simplify (BinOp x y Minus)
+    | x == y = Number 0
+simplify (BinOp x y op) = BinOp (simplify x) (simplify y) op
+simplify (Root x)
+    | simplify x == 0 = 0
+    | simplify x == 1 = 1
+simplify (Root x) = Root $ simplify x
 simplify x = x

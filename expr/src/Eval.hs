@@ -1,28 +1,36 @@
-module Eval ( eval ) where 
+module Eval ( eval ) where
 
-import Expr ( Expr (..), BinOp (..), UnOp (..) )
-import Error ( Error (..) )
+import Expr
+import Data.Map.Strict as M
+import Error
 
-import qualified Data.Map.Strict as M
+eval :: RealFloat a =>  Expr a -> Map String a -> Either Error a
+eval (Number x) _ = Right x
+eval (Root x) env =
+    case eval x env of
+    Right result -> if result >= 0 then Right $ sqrt result else Left NegRoot
+    Left err -> Left err
+eval (BinOp x y op) env =
+    case eval x env of
+    Right result1 -> case eval y env of
+        Right result2 -> applyOp op result1 result2
+        Left err -> Left err
+    Left err -> Left err
+eval (Variable name) vars =
+    case M.lookup name vars of
+    Just x -> Right x
+    Nothing -> Left (UndefinedVariable name)
 
-eval :: (Ord a, Floating a) => Expr a -> M.Map String a -> Either (Error a) a
-eval (Num d) _ = Right d 
-eval (Var v) subst = maybe (Left $ VarNotDefined v) Right (v `M.lookup` subst)
-eval (UnOp Sqrt e) subst =
-    either Left runSqrt (eval e subst)
-  where 
-    runSqrt v | v < 0 = Left (NegativeSqrt e)
-              | otherwise = Right $ sqrt v 
-eval (BinOp op x y) subst =
-    let x' = eval x subst 
-        y' = eval y subst 
-    in  either Left (\xv -> either Left (runBinOp xv) y') x'
-  where 
-    runBinOp xv yv = 
-      case op of 
-        Plus -> Right $ xv + yv 
-        Mult -> Right $ xv * yv 
-        Minus -> Right $ xv - yv 
-        Pow -> Right $ xv ** yv 
-        Div | yv == 0 -> Left $ DivisionByZero y 
-            | otherwise -> Right $ xv / yv 
+
+applyOp :: RealFloat a => Operation -> a -> a -> Either Error a
+applyOp Div x y
+    | y == 0 = Left ZeroDiv
+    | otherwise = Right (x / y)
+applyOp Pow x y
+  | isNaN (x ** y) = Left NegRoot
+  | otherwise = Right (x ** y)
+applyOp op x y = Right (opToFun op x y)
+  where opToFun :: RealFloat a => Operation -> a -> a -> a
+        opToFun Plus = (+)
+        opToFun Minus = (-)
+        opToFun Mul = (*)
